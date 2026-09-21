@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}{% if mantenimiento %}Editar{% else %}Registrar{% endif %} Mantenimiento{% endblock %}
+
+{% block content %}
+<div class="animate-in">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1"><i class="bi bi-clipboard-check me-2" style="color: var(--primary);"></i>{% if mantenimiento %}Editar{% else %}Registrar{% endif %} Mantenimiento</h2>
+            <p class="text-muted">{{ maquina.codigo }} — {{ maquina.nombre }}</p>
+        </div>
+        <a href="{{ url_for('detalle_maquina', id=maquina.id) }}" class="btn btn-secondary"><i class="bi bi-arrow-left me-1"></i> Volver</a>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="content-card mb-4">
+                <div class="card-header">
+                    <span><i class="bi bi-calendar-check me-2" style="color: var(--primary);"></i>Cronograma</span>
+                    <span class="badge-mant-{{ maquina.estado_mantenimiento }}" style="padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;">
+                        {% if maquina.estado_mantenimiento == 'vencido' %}Vencido hace {{ maquina.dias_para_proximo|abs }} días
+                        {% elif maquina.estado_mantenimiento == 'proximo' %}Próximo en {{ maquina.dias_para_proximo }} días
+                        {% elif maquina.estado_mantenimiento == 'al_dia' %}Al día ({{ maquina.dias_para_proximo }} días)
+                        {% else %}Sin programar{% endif %}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3"><div class="p-3 rounded-3 text-center" style="background:#f5f7fa;">
+                            <div class="small text-muted">Frecuencia</div>
+                            <div class="fw-bold" style="color:var(--primary);">{{ maquina.frecuencia_nombre }}</div>
+                        </div></div>
+                        <div class="col-md-3"><div class="p-3 rounded-3 text-center" style="background:#f5f7fa;">
+                            <div class="small text-muted">Último</div>
+                            <div class="fw-bold">{{ maquina.fecha_ultimo_mantenimiento.strftime('%d/%m/%Y') if maquina.fecha_ultimo_mantenimiento else 'Ninguno' }}</div>
+                        </div></div>
+                        <div class="col-md-3"><div class="p-3 rounded-3 text-center" style="background:#f5f7fa;">
+                            <div class="small text-muted">Programado</div>
+                            {% set proxima = maquina.fecha_proximo_mantenimiento or maquina.proxima_fecha_calculada %}
+                            <div class="fw-bold" style="color:{% if maquina.estado_mantenimiento=='vencido' %}#d32f2f{% elif maquina.estado_mantenimiento=='proximo' %}#e65100{% else %}#2e7d32{% endif %};">
+                                {{ proxima.strftime('%d/%m/%Y') if proxima else 'Sin programar' }}
+                            </div>
+                        </div></div>
+                        <div class="col-md-3"><div class="p-3 rounded-3 text-center" style="background:#f5f7fa;">
+                            <div class="small text-muted">Criticidad</div>
+                            <div class="fw-bold" style="color:{{ maquina.criticidad_info.color }};">{{ maquina.criticidad_info.nombre }}</div>
+                        </div></div>
+                    </div>
+                    {% if maquina.estado_mantenimiento == 'vencido' %}
+                    <div class="alert alert-danger mt-3 mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i><strong>Este mantenimiento está vencido.</strong> Se calculará el retraso automáticamente.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="content-card">
+                <div class="card-header"><span><i class="bi bi-pencil-square me-2" style="color: var(--primary);"></i>Datos del Mantenimiento</span></div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Tipo *</label>
+                                <select name="tipo" class="form-select" required>
+                                    <option value="Preventivo" {% if not mantenimiento or mantenimiento.tipo=='Preventivo' %}selected{% endif %}>Preventivo</option>
+                                    <option value="Correctivo" {% if mantenimiento and mantenimiento.tipo=='Correctivo' %}selected{% endif %}>Correctivo</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Fecha realización *</label>
+                                <input type="date" name="fecha_realizacion" class="form-control" required value="{% if mantenimiento and mantenimiento.fecha %}{{ mantenimiento.fecha.strftime('%Y-%m-%d') }}{% else %}{{ now.strftime('%Y-%m-%d') }}{% endif %}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Técnico *</label>
+                                <input type="text" name="tecnico" class="form-control" required value="{{ mantenimiento.tecnico if mantenimiento else '' }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Departamento</label>
+                                <input type="text" name="departamento" class="form-control" value="{{ mantenimiento.departamento if mantenimiento else '' }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Prioridad</label>
+                                <select name="prioridad" class="form-select">
+                                    <option value="Baja" {% if mantenimiento and mantenimiento.prioridad=='Baja' %}selected{% endif %}>Baja</option>
+                                    <option value="Media" {% if not mantenimiento or mantenimiento.prioridad=='Media' %}selected{% endif %}>Media</option>
+                                    <option value="Alta" {% if mantenimiento and mantenimiento.prioridad=='Alta' %}selected{% endif %}>Alta</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Duración (horas)</label>
+                                <input type="number" step="0.5" name="duracion" class="form-control" value="{{ mantenimiento.duracion if mantenimiento else '' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Estado</label>
+                                <select name="estado" class="form-select">
+                                    <option value="Completado" {% if not mantenimiento or mantenimiento.estado=='Completado' %}selected{% endif %}>Completado</option>
+                                    <option value="Pendiente" {% if mantenimiento and mantenimiento.estado=='Pendiente' %}selected{% endif %}>Pendiente</option>
+                                    <option value="En progreso" {% if mantenimiento and mantenimiento.estado=='En progreso' %}selected{% endif %}>En progreso</option>
+                                </select>
+                                <small class="text-muted"><i class="bi bi-info-circle"></i> Marcar como <strong>Completado</strong> reinicia el cronograma.</small>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Descripción *</label>
+                                <textarea name="descripcion" class="form-control" rows="3" required>{{ mantenimiento.descripcion if mantenimiento else '' }}</textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Repuestos / Materiales</label>
+                                <textarea name="repuestos" class="form-control" rows="2">{{ mantenimiento.repuestos if mantenimiento else '' }}</textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Observaciones</label>
+                                <textarea name="observaciones" class="form-control" rows="2">{{ mantenimiento.observaciones if mantenimiento else '' }}</textarea>
+                            </div>
+                            <div class="col-12 d-flex gap-2 mt-3 pt-3 border-top">
+                                <button type="submit" class="btn btn-corporate"><i class="bi bi-check-circle me-1"></i>{% if mantenimiento %}Actualizar{% else %}Registrar{% endif %}</button>
+                                <a href="{{ url_for('detalle_maquina', id=maquina.id) }}" class="btn btn-secondary">Cancelar</a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

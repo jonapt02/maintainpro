@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Calendario{% endblock %}
+
+{% block content %}
+<div class="animate-in">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1"><i class="bi bi-calendar3 me-2" style="color: var(--primary);"></i>Calendario de Mantenimientos</h2>
+            <p class="text-muted">Programación basada en frecuencias y criticidad</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-warning" onclick="enviarAlertaVencidos()"><i class="bi bi-envelope-exclamation me-1"></i> Alertar Vencidos</button>
+            <a href="{{ url_for('listar_maquinas') }}" class="btn btn-secondary"><i class="bi bi-hdd-stack me-1"></i> Máquinas</a>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3"><div class="stat-card"><div class="d-flex justify-content-between">
+            <div><div class="stat-label">Vencidos</div><div class="stat-number" style="color:#d32f2f;">{{ stats.vencidos }}</div></div>
+            <div class="stat-icon" style="background:#fce4ec;color:#c62828;"><i class="bi bi-exclamation-triangle-fill"></i></div>
+        </div></div></div>
+        <div class="col-md-3"><div class="stat-card"><div class="d-flex justify-content-between">
+            <div><div class="stat-label">Próximos (7d)</div><div class="stat-number" style="color:#e65100;">{{ stats.proximos }}</div></div>
+            <div class="stat-icon" style="background:#fff3e0;color:#e65100;"><i class="bi bi-clock-fill"></i></div>
+        </div></div></div>
+        <div class="col-md-3"><div class="stat-card"><div class="d-flex justify-content-between">
+            <div><div class="stat-label">Al Día</div><div class="stat-number" style="color:#2e7d32;">{{ stats.al_dia }}</div></div>
+            <div class="stat-icon" style="background:#e8f5e9;color:#2e7d32;"><i class="bi bi-check-circle-fill"></i></div>
+        </div></div></div>
+        <div class="col-md-3"><div class="stat-card"><div class="d-flex justify-content-between">
+            <div><div class="stat-label">Sin Programar</div><div class="stat-number" style="color:#6c757d;">{{ stats.sin_programar }}</div></div>
+            <div class="stat-icon" style="background:#f5f5f5;color:#6c757d;"><i class="bi bi-question-circle-fill"></i></div>
+        </div></div></div>
+    </div>
+
+    <div class="content-card mb-4">
+        <div class="card-body">
+            <div class="d-flex flex-wrap gap-4">
+                <div><span style="color:#d32f2f;font-size:20px;">●</span> <strong>Crítico</strong></div>
+                <div><span style="color:#ffab00;font-size:20px;">●</span> <strong>Medianamente</strong></div>
+                <div><span style="color:#00c853;font-size:20px;">●</span> <strong>No crítico</strong></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="content-card mb-4">
+        <div class="card-header"><span><i class="bi bi-calendar-week me-2" style="color:var(--primary);"></i>Vista de Calendario</span></div>
+        <div class="card-body"><div id="calendario"></div></div>
+    </div>
+
+    <div class="content-card">
+        <div class="card-header"><span><i class="bi bi-list-check me-2" style="color:var(--primary);"></i>Próximos 30 días</span></div>
+        <div class="card-body"><div id="listaProximos"></div></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/locales-all.global.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const el = document.getElementById('calendario');
+    fetch('/api/proximos-mantenimientos').then(r=>r.json()).then(eventos => {
+        const cal = new FullCalendar.Calendar(el, {
+            initialView: 'dayGridMonth', locale: 'es',
+            headerToolbar: {left: 'prev,next today', center: 'title', right: 'dayGridMonth,listWeek,listMonth'},
+            buttonText: {today: 'Hoy', month: 'Mes', week: 'Semana', list: 'Lista'},
+            events: eventos,
+            eventClick: info => { window.location.href = `/maquina/${info.event.id}`; },
+            eventDidMount: info => {
+                const p = info.event.extendedProps;
+                info.el.title = `${p.codigo} - ${p.nombre}\n${p.ubicacion}\n${p.frecuencia}\n${p.criticidad}`;
+            },
+            height: 'auto', dayMaxEvents: 4
+        });
+        cal.render();
+        cargarProximos();
+    });
+
+    function cargarProximos() {
+        fetch('/api/proximos-mantenimientos').then(r=>r.json()).then(eventos => {
+            const prox = eventos.filter(e => e.extendedProps.dias !== null && e.extendedProps.dias <= 30)
+                                .sort((a,b) => a.extendedProps.dias - b.extendedProps.dias);
+            const cont = document.getElementById('listaProximos');
+            if (prox.length === 0) {
+                cont.innerHTML = '<div class="text-center py-4"><i class="bi bi-check-circle-fill display-4 text-success"></i><p class="text-muted mt-2">Sin mantenimientos en 30 días</p></div>';
+                return;
+            }
+            let html = '<div class="list-group list-group-flush">';
+            prox.forEach(e => {
+                const p = e.extendedProps;
+                const d = p.dias;
+                let cls = 'bg-success', txt = `En ${d} días`;
+                if (d < 0) { cls = 'bg-danger'; txt = `Vencido hace ${Math.abs(d)} días`; }
+                else if (d <= 7) { cls = 'bg-warning text-dark'; txt = d === 0 ? '¡HOY!' : `En ${d} días`; }
+                html += `<a href="/maquina/${e.id}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                    <div><strong>${p.codigo}</strong> - ${p.nombre}<small class="d-block text-muted"><i class="bi bi-geo-alt"></i> ${p.ubicacion} | <i class="bi bi-repeat"></i> ${p.frecuencia} | <i class="bi bi-flag"></i> ${p.criticidad}</small></div>
+                    <span class="badge ${cls}">${txt}</span></a>`;
+            });
+            html += '</div>';
+            cont.innerHTML = html;
+        });
+    }
+});
+
+function enviarAlertaVencidos() {
+    if (!confirm('¿Enviar alerta de mantenimientos vencidos?')) return;
+    fetch('/api/alerta-vencidos', {method: 'POST'}).then(r=>r.json()).then(data => {
+        if (data.success) alert(`✅ Alerta enviada para ${data.enviados} mantenimiento(s)`);
+        else alert(`❌ ${data.error}`);
+    }).catch(e => alert('Error: ' + e.message));
+}
+</script>
+{% endblock %}

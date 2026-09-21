@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+{% block title %}{{ maquina.nombre }}{% endblock %}
+
+{% block content %}
+<div class="animate-in">
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <h2 class="fw-bold mb-1"><i class="bi bi-hdd-stack me-2" style="color: var(--primary);"></i>{{ maquina.nombre }}</h2>
+            <p class="text-muted">
+                <span class="badge bg-primary me-2">{{ maquina.codigo }}</span>
+                {% if maquina.tipo_codigo %}<span class="badge bg-secondary me-2">{{ maquina.tipo_nombre }}</span>{% endif %}
+                {% if maquina.serial %}<span class="badge bg-light text-dark me-2">Serial: {{ maquina.serial }}</span>{% endif %}
+                <span class="badge-criticidad {{ maquina.criticidad }} ms-2"><i class="bi bi-{{ maquina.criticidad_info.icono }}"></i> {{ maquina.criticidad_info.nombre }}</span>
+            </p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ url_for('crear_mantenimiento', maquina_id=maquina.id) }}" class="btn btn-corporate"><i class="bi bi-plus-circle me-1"></i> Registrar Mantenimiento</a>
+            <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#modalSugerirCorrectivo">
+                <i class="bi bi-tools me-1"></i> Sugerir Correctivo
+            </button>
+            <a href="{{ url_for('etiqueta_individual', maquina_id=maquina.id) }}" class="btn btn-outline-dark" target="_blank"><i class="bi bi-tag me-1"></i> Etiqueta</a>
+            <a href="{{ url_for('editar_maquina', id=maquina.id) }}" class="btn btn-outline-corporate"><i class="bi bi-pencil me-1"></i> Editar</a>
+            <a href="{{ url_for('listar_maquinas') }}" class="btn btn-secondary"><i class="bi bi-arrow-left me-1"></i> Volver</a>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-7">
+            <div class="content-card">
+                <div class="card-header"><span><i class="bi bi-info-circle me-2" style="color: var(--primary);"></i>Información General</span></div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row mb-0">
+                                <dt class="col-sm-5 text-muted">Código</dt><dd class="col-sm-7">{{ maquina.codigo }}</dd>
+                                <dt class="col-sm-5 text-muted">Tipo</dt><dd class="col-sm-7">{{ maquina.tipo_nombre if maquina.tipo_codigo else '-' }}</dd>
+                                <dt class="col-sm-5 text-muted">Marca</dt><dd class="col-sm-7">{{ maquina.marca or '-' }}</dd>
+                                <dt class="col-sm-5 text-muted">Modelo</dt><dd class="col-sm-7">{{ maquina.modelo or '-' }}</dd>
+                                <dt class="col-sm-5 text-muted">Serial</dt><dd class="col-sm-7">{{ maquina.serial or '-' }}</dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl class="row mb-0">
+                                <dt class="col-sm-5 text-muted">Ubicación</dt><dd class="col-sm-7">{{ maquina.ubicacion or '-' }}</dd>
+                                <dt class="col-sm-5 text-muted">Proveedor</dt><dd class="col-sm-7">{{ maquina.proveedor or '-' }}</dd>
+                                <dt class="col-sm-5 text-muted">Frecuencia</dt><dd class="col-sm-7"><span class="badge-frecuencia">{{ maquina.frecuencia_nombre }}</span></dd>
+                                <dt class="col-sm-5 text-muted">Criticidad</dt><dd class="col-sm-7"><span class="badge-criticidad {{ maquina.criticidad }}">{{ maquina.criticidad_info.nombre }}</span></dd>
+                                <dt class="col-sm-5 text-muted">Estado</dt><dd class="col-sm-7"><span class="badge-status {{ maquina.estado|lower|replace(' ','') }}">{{ maquina.estado }}</span></dd>
+                            </dl>
+                        </div>
+                    </div>
+                    <hr class="my-3">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="text-center p-3 rounded-3" style="background:#f5f7fa;">
+                                <div class="small text-muted">Último</div>
+                                <div class="fw-bold">{{ maquina.fecha_ultimo_mantenimiento.strftime('%d/%m/%Y') if maquina.fecha_ultimo_mantenimiento else 'Sin registros' }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center p-3 rounded-3" style="background:#f5f7fa;">
+                                <div class="small text-muted">Próximo</div>
+                                {% set proxima = maquina.fecha_proximo_mantenimiento or maquina.proxima_fecha_calculada %}
+                                <div class="fw-bold">{{ proxima.strftime('%d/%m/%Y') if proxima else 'Sin programar' }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center p-3 rounded-3 badge-mant-{{ maquina.estado_mantenimiento }}">
+                                <div class="small">Estado programación</div>
+                                <div class="fw-bold">
+                                    {% if maquina.estado_mantenimiento == 'vencido' %}Vencido hace {{ maquina.dias_para_proximo|abs }} días
+                                    {% elif maquina.estado_mantenimiento == 'proximo' %}Próximo en {{ maquina.dias_para_proximo }} días
+                                    {% elif maquina.estado_mantenimiento == 'al_dia' %}Al día ({{ maquina.dias_para_proximo }} días)
+                                    {% else %}Sin programar{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% if maquina.observaciones %}
+                    <hr><p class="text-muted mb-0"><strong>Observaciones:</strong> {{ maquina.observaciones }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="content-card">
+                <div class="card-header"><span><i class="bi bi-graph-up me-2" style="color: var(--primary);"></i>Estadísticas</span></div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-6"><div class="text-center p-3 bg-light rounded-3">
+                            <div class="display-6 fw-bold" style="color: var(--primary);">{{ total_mant }}</div>
+                            <div class="text-muted small">Total</div>
+                        </div></div>
+                        <div class="col-6"><div class="text-center p-3 bg-light rounded-3">
+                            <div class="display-6 fw-bold" style="color:#2e7d32;">{{ preventivos }}</div>
+                            <div class="text-muted small">Preventivos</div>
+                        </div></div>
+                        <div class="col-6"><div class="text-center p-3 bg-light rounded-3">
+                            <div class="display-6 fw-bold" style="color:#c62828;">{{ correctivos }}</div>
+                            <div class="text-muted small">Correctivos</div>
+                        </div></div>
+                        <div class="col-6"><div class="text-center p-3 bg-light rounded-3">
+                            <div class="display-6 fw-bold" style="color: var(--accent);">{{ "%.1f"|format(promedio_duracion) }}h</div>
+                            <div class="text-muted small">Duración prom.</div>
+                        </div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="content-card">
+        <div class="card-header">
+            <span><i class="bi bi-clock-history me-2" style="color: var(--primary);"></i>Historial de Mantenimientos</span>
+            <div><span class="badge bg-info me-1">{{ preventivos }} P</span><span class="badge bg-danger">{{ correctivos }} C</span></div>
+        </div>
+        <div class="card-body">
+            {% if mantenimientos %}
+                <div class="timeline">
+                    {% for m in mantenimientos %}
+                        <div class="timeline-item {{ m.tipo.lower() }}">
+                            <div class="timeline-date">
+                                <i class="bi bi-calendar3 me-1"></i>{{ m.fecha.strftime('%d/%m/%Y %H:%M') if m.fecha else 'Sin fecha' }}
+                                <span class="badge {% if m.tipo=='Preventivo' %}bg-info{% else %}bg-danger{% endif %} ms-2">{{ m.tipo }}</span>
+                                <span class="badge {% if m.prioridad=='Alta' %}bg-danger{% elif m.prioridad=='Media' %}bg-warning text-dark{% else %}bg-secondary{% endif %} ms-1">{{ m.prioridad }}</span>
+                                <span class="badge {% if m.estado=='Completado' %}bg-success{% elif m.estado=='Pendiente' %}bg-warning text-dark{% else %}bg-info{% endif %} ms-1">{{ m.estado }}</span>
+                                {% if m.origen == 'sugerido' %}<span class="badge bg-warning text-dark ms-1">Sugerido</span>{% endif %}
+                                {% if m.tipo == 'Preventivo' %}
+                                    {% if m.estado_cumplimiento == 'a_tiempo' %}
+                                        <span class="badge bg-success ms-1"><i class="bi bi-check-circle"></i> A tiempo</span>
+                                    {% elif m.estado_cumplimiento == 'retrasado' %}
+                                        <span class="badge bg-danger ms-1"><i class="bi bi-clock-history"></i> {{ m.dias_desviacion }}d retraso</span>
+                                    {% elif m.estado_cumplimiento == 'adelantado' %}
+                                        <span class="badge bg-info ms-1"><i class="bi bi-fast-forward"></i> {{ m.dias_desviacion|abs }}d adelantado</span>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                            <div class="timeline-title">{{ m.descripcion }}</div>
+                            <div class="timeline-content">
+                                <strong>Técnico:</strong> {{ m.tecnico }}
+                                {% if m.departamento %}| <strong>Depto:</strong> {{ m.departamento }}{% endif %}
+                                {% if m.duracion > 0 %}| <strong>Duración:</strong> {{ m.duracion }}h{% endif %}
+                                {% if m.repuestos %}<br><strong>Repuestos:</strong> {{ m.repuestos }}{% endif %}
+                                {% if m.fecha_programada and m.tipo == 'Preventivo' %}
+                                    <br><span class="text-muted"><i class="bi bi-calendar-event"></i> <strong>Programado:</strong> {{ m.fecha_programada.strftime('%d/%m/%Y') }} | <strong>Realizado:</strong> {{ m.fecha.strftime('%d/%m/%Y') if m.fecha else '-' }}</span>
+                                {% endif %}
+                                {% if m.observaciones %}<br><span class="text-muted"><strong>Obs:</strong> {{ m.observaciones }}</span>{% endif %}
+                            </div>
+                            <div class="mt-1">
+                                <a href="{{ url_for('editar_mantenimiento', id=m.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+                                <a href="{{ url_for('eliminar_mantenimiento', id=m.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Eliminar?')"><i class="bi bi-trash"></i></a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-inbox display-1 text-muted"></i>
+                    <p class="text-muted mt-3">No hay mantenimientos registrados</p>
+                    <a href="{{ url_for('crear_mantenimiento', maquina_id=maquina.id) }}" class="btn btn-corporate"><i class="bi bi-plus-circle me-1"></i> Registrar Primero</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal sugerir correctivo -->
+<div class="modal fade" id="modalSugerirCorrectivo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('sugerir_correctivo', id=maquina.id) }}">
+                <div class="modal-header" style="background:#e68a00;color:white;">
+                    <h5 class="modal-title"><i class="bi bi-tools me-2"></i>Sugerir Mantenimiento Correctivo</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning mb-3" style="font-size:13px;">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Enviará una notificación <strong>solo a los destinatarios que selecciones</strong>.
+                        El cronograma preventivo no se ve afectado.
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Equipo</label>
+                        <input type="text" class="form-control" value="{{ maquina.codigo }} — {{ maquina.nombre }}" readonly>
+                    </div>
+
+                    <!-- SELECTOR DE DESTINATARIOS -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label fw-semibold mb-0">
+                                <i class="bi bi-envelope me-1"></i> Destinatarios <span class="text-danger">*</span>
+                            </label>
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-primary" onclick="seleccionarTodos(true)">
+                                    <i class="bi bi-check-all"></i> Todos
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="seleccionarTodos(false)">
+                                    <i class="bi bi-x"></i> Ninguno
+                                </button>
+                            </div>
+                        </div>
+                        <div id="listaDestinatarios" style="
+                            max-height: 220px;
+                            overflow-y: auto;
+                            border: 1px solid #e0e0e0;
+                            border-radius: 8px;
+                            padding: 10px;
+                            background: #f8f9fa;
+                        ">
+                            <div class="text-center text-muted py-3">
+                                <span class="spinner-border spinner-border-sm me-2"></span> Cargando destinatarios...
+                            </div>
+                        </div>
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle"></i>
+                            Selecciona al menos un destinatario para enviar la sugerencia.
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Motivo de la sugerencia</label>
+                        <textarea name="motivo" class="form-control" rows="3" 
+                                  placeholder="Ej: Ruido anormal en el motor, vibración excesiva, falla en encendido..."></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Sugerido por <span class="text-danger">*</span></label>
+                        <input type="text" name="usuario" class="form-control" placeholder="Tu nombre" required>
+                    </div>
+
+                    {% if maquina.correctivos_recientes > 0 %}
+                    <div class="alert alert-danger" style="font-size:13px;">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        Este equipo ha tenido <strong>{{ maquina.correctivos_recientes }} correctivo(s)</strong> en los últimos 90 días.
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn" style="background:#e68a00;color:white;font-weight:600;">
+                        <i class="bi bi-send me-1"></i> Enviar Sugerencia
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Cargar destinatarios al abrir el modal
+document.getElementById('modalSugerirCorrectivo').addEventListener('show.bs.modal', function () {
+    const contenedor = document.getElementById('listaDestinatarios');
+    
+    if (contenedor.dataset.cargado === 'true') return;
+    
+    fetch('/api/destinatarios')
+        .then(r => r.json())
+        .then(data => {
+            if (data.length === 0) {
+                contenedor.innerHTML = `
+                    <div class="text-center text-muted py-3">
+                        <i class="bi bi-envelope-slash fs-3 d-block mb-2"></i>
+                        No hay destinatarios activos. Ve a <a href="/configuracion">Configuración</a> para agregar.
+                    </div>`;
+                return;
+            }
+            
+            contenedor.innerHTML = data.map(d => `
+                <div class="form-check p-2 rounded" style="border-bottom: 1px solid #f0f0f0;">
+                    <input class="form-check-input destinatario-check" type="checkbox" 
+                           name="destinatarios" value="${d.id}" id="dest${d.id}">
+                    <label class="form-check-label w-100" for="dest${d.id}" style="cursor: pointer;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong style="font-size: 14px;">${d.nombre}</strong>
+                                <small class="text-muted d-block">${d.email}</small>
+                                ${d.area ? `<small class="text-primary"><i class="bi bi-building"></i> ${d.area}</small>` : ''}
+                            </div>
+                            <div>
+                                ${d.recibe_correctivos 
+                                    ? '<span class="badge bg-success"><i class="bi bi-check-circle"></i> Correctivos</span>' 
+                                    : '<span class="badge bg-secondary"><i class="bi bi-x-circle"></i> Sin correctivos</span>'}
+                            </div>
+                        </div>
+                    </label>
+                </div>
+            `).join('');
+            
+            contenedor.dataset.cargado = 'true';
+        })
+        .catch(err => {
+            contenedor.innerHTML = `<div class="text-danger text-center py-3">Error: ${err.message}</div>`;
+        });
+});
+
+function seleccionarTodos(seleccionar) {
+    document.querySelectorAll('.destinatario-check').forEach(cb => cb.checked = seleccionar);
+}
+</script>
+{% endblock %}

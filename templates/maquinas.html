@@ -1,0 +1,398 @@
+{% extends "base.html" %}
+{% block title %}Parque de Máquinas{% endblock %}
+
+{% block content %}
+<div class="animate-in">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1"><i class="bi bi-hdd-stack me-2" style="color: var(--primary);"></i>Parque de Máquinas</h2>
+            <p class="text-muted">Gestión completa de equipos</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ url_for('calendario') }}" class="btn btn-info"><i class="bi bi-calendar3 me-1"></i> Calendario</a>
+            <button type="button" class="btn btn-dark" onclick="generarEtiquetasSeleccionadas()">
+                <i class="bi bi-tags me-1"></i> Etiquetas (<span id="contadorSeleccionados">0</span>)
+            </button>
+            <button type="button" class="btn btn-danger" onclick="exportarPDF()">
+                <i class="bi bi-file-pdf me-1"></i> PDF
+            </button>
+            <a href="{{ url_for('crear_maquina') }}" class="btn btn-corporate"><i class="bi bi-plus-circle me-1"></i> Nueva Máquina</a>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="stat-card"><div class="d-flex justify-content-between">
+                <div><div class="stat-label">Total Máquinas</div><div class="stat-number">{{ stats.total }}</div></div>
+                <div class="stat-icon" style="background: #e3f2fd; color: #0d47a1;"><i class="bi bi-hdd-stack"></i></div>
+            </div></div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card"><div class="d-flex justify-content-between">
+                <div><div class="stat-label">Tipos</div><div class="stat-number">{{ stats.por_tipo|length }}</div></div>
+                <div class="stat-icon" style="background: #f3e5f5; color: #6a1b9a;"><i class="bi bi-tags"></i></div>
+            </div></div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card"><div class="d-flex justify-content-between">
+                <div><div class="stat-label">Operativas</div><div class="stat-number" style="color:#2e7d32;">
+                    {% for e,c in stats.por_estado %}{% if e == 'Operativa' %}{{ c }}{% endif %}{% endfor %}</div></div>
+                <div class="stat-icon" style="background: #e8f5e9; color: #2e7d32;"><i class="bi bi-check-circle"></i></div>
+            </div></div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card"><div class="d-flex justify-content-between">
+                <div><div class="stat-label">En Mantenimiento</div><div class="stat-number" style="color:#e65100;">
+                    {% for e,c in stats.por_estado %}{% if e == 'En mantenimiento' %}{{ c }}{% endif %}{% endfor %}</div></div>
+                <div class="stat-icon" style="background: #fff3e0; color: #e65100;"><i class="bi bi-tools"></i></div>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-6">
+            <div class="content-card">
+                <div class="card-header"><span><i class="bi bi-pie-chart-fill me-2" style="color: var(--primary);"></i>Distribución por Tipo</span></div>
+                <div class="card-body" style="position: relative; height: 280px;"><canvas id="chartTipos"></canvas></div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="content-card">
+                <div class="card-header"><span><i class="bi bi-bar-chart-fill me-2" style="color: var(--primary);"></i>Distribución por Estado</span></div>
+                <div class="card-body" style="position: relative; height: 280px;"><canvas id="chartEstados"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="content-card mb-4">
+        <div class="card-header">
+            <span><i class="bi bi-funnel-fill me-2" style="color: var(--primary);"></i>Filtros</span>
+            <a href="{{ url_for('listar_maquinas') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-circle"></i> Limpiar</a>
+        </div>
+        <div class="card-body">
+            <form method="GET">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Búsqueda</label>
+                        <input type="text" name="busqueda" class="form-control" placeholder="Nombre, código, serial..." value="{{ filtro_busqueda }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-semibold">Tipo</label>
+                        <select name="tipo" class="form-select">
+                            <option value="">Todos</option>
+                            {% for c,n in tipos.items() %}<option value="{{ c }}" {% if filtro_tipo==c %}selected{% endif %}>{{ c }} - {{ n }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-semibold">Estado</label>
+                        <select name="estado" class="form-select">
+                            <option value="">Todos</option>
+                            <option value="Operativa" {% if filtro_estado=='Operativa' %}selected{% endif %}>Operativa</option>
+                            <option value="En mantenimiento" {% if filtro_estado=='En mantenimiento' %}selected{% endif %}>En mantenimiento</option>
+                            <option value="Fuera de servicio" {% if filtro_estado=='Fuera de servicio' %}selected{% endif %}>Fuera de servicio</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-semibold">Criticidad</label>
+                        <select name="criticidad" class="form-select">
+                            <option value="">Todas</option>
+                            {% for c,cfg in criticidades.items() %}<option value="{{ c }}" {% if filtro_criticidad==c %}selected{% endif %}>{{ cfg.nombre }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-corporate w-100"><i class="bi bi-search me-1"></i> Filtrar</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="content-card">
+        <div class="card-header">
+            <span><i class="bi bi-table me-2" style="color: var(--primary);"></i>Listado</span>
+            <span class="badge bg-secondary">{{ maquinas|length }} resultados</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-corporate mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width:30px;"><input type="checkbox" id="selectAll"></th>
+                            <th>Código</th><th>Serial</th><th>Tipo</th><th>Nombre</th>
+                            <th>Marca/Modelo</th><th>Ubicación</th>
+                            <th>Frecuencia</th><th>Criticidad</th><th>Próximo</th><th>Estado</th><th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for maquina in maquinas %}
+                        <tr>
+                            <td><input type="checkbox" class="maquina-checkbox" value="{{ maquina.id }}"></td>
+                            <td><strong>{{ maquina.codigo }}</strong></td>
+                            <td>{% if maquina.serial %}<code class="text-primary" style="font-size:0.8rem;">{{ maquina.serial }}</code>{% else %}-{% endif %}</td>
+                            <td>{% if maquina.tipo_codigo %}<span class="badge bg-secondary">{{ maquina.tipo_codigo }}</span><small class="d-block text-muted">{{ maquina.tipo_nombre }}</small>{% else %}-{% endif %}</td>
+                            <td>{{ maquina.nombre }}</td>
+                            <td>{{ maquina.marca or '-' }}{% if maquina.modelo %}<small class="d-block text-muted">{{ maquina.modelo }}</small>{% endif %}</td>
+                            <td>{{ maquina.ubicacion or '-' }}</td>
+                            <td><span class="badge-frecuencia">{{ maquina.frecuencia_nombre }}</span></td>
+                            <td><span class="badge-criticidad {{ maquina.criticidad }}"><i class="bi bi-{{ maquina.criticidad_info.icono }}"></i> {{ maquina.criticidad_info.nombre }}</span></td>
+                            <td>
+                                {% set proxima = maquina.fecha_proximo_mantenimiento or maquina.proxima_fecha_calculada %}
+                                {% if proxima %}
+                                    <div style="font-size:0.8rem;">{{ proxima.strftime('%d/%m/%Y') }}</div>
+                                    <span class="badge-mant-{{ maquina.estado_mantenimiento }}" style="padding:2px 8px;border-radius:4px;font-size:0.7rem;font-weight:600;">
+                                        {% if maquina.estado_mantenimiento == 'vencido' %}Vencido ({{ maquina.dias_para_proximo|abs }}d)
+                                        {% elif maquina.estado_mantenimiento == 'proximo' %}En {{ maquina.dias_para_proximo }}d
+                                        {% else %}Al día{% endif %}
+                                    </span>
+                                {% else %}<span class="text-muted">Sin programar</span>{% endif %}
+                            </td>
+                            <td><span class="badge-status {{ maquina.estado|lower|replace(' ','') }}">{{ maquina.estado }}</span></td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('detalle_maquina', id=maquina.id) }}" class="btn btn-outline-primary" title="Hoja de vida"><i class="bi bi-eye"></i></a>
+                                    <a href="{{ url_for('etiqueta_individual', maquina_id=maquina.id) }}" class="btn btn-outline-dark" title="Etiqueta" target="_blank"><i class="bi bi-tag"></i></a>
+                                    <a href="{{ url_for('crear_mantenimiento', maquina_id=maquina.id) }}" class="btn btn-outline-success" title="Registrar mantenimiento"><i class="bi bi-plus-circle"></i></a>
+                                    <button type="button" class="btn btn-outline-warning" title="Sugerir correctivo"
+                                            onclick="sugerirCorrectivoRapido({{ maquina.id }}, '{{ maquina.codigo }}', '{{ maquina.nombre|replace("'", "\\'") }}')">
+                                        <i class="bi bi-tools"></i>
+                                    </button>
+                                    <a href="{{ url_for('editar_maquina', id=maquina.id) }}" class="btn btn-outline-secondary" title="Editar"><i class="bi bi-pencil"></i></a>
+                                    <a href="{{ url_for('eliminar_maquina', id=maquina.id) }}" class="btn btn-outline-danger" title="Eliminar" onclick="return confirm('¿Eliminar?')"><i class="bi bi-trash"></i></a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="12" class="text-center py-4">
+                            <i class="bi bi-inbox display-4 text-muted d-block"></i>
+                            <p class="text-muted mt-2">No se encontraron máquinas</p>
+                            <a href="{{ url_for('crear_maquina') }}" class="btn btn-corporate"><i class="bi bi-plus-circle me-1"></i> Registrar Máquina</a>
+                        </td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal sugerir correctivo rápido -->
+<div class="modal fade" id="modalSugerirRapido" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <form method="POST" id="formSugerirRapido" action="">
+                <div class="modal-header" style="background:#e68a00;color:white;">
+                    <h5 class="modal-title"><i class="bi bi-tools me-2"></i>Sugerir Correctivo</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning mb-3" style="font-size:13px;">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Se enviará una notificación <strong>solo a los destinatarios seleccionados</strong>. El cronograma preventivo no se ve afectado.
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Equipo</label>
+                        <input type="text" id="sugerirEquipo" class="form-control" readonly>
+                    </div>
+
+                    <!-- SELECTOR DE DESTINATARIOS -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label fw-semibold mb-0">
+                                <i class="bi bi-envelope me-1"></i> Destinatarios <span class="text-danger">*</span>
+                            </label>
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-primary" onclick="seleccionarTodosRapido(true)">
+                                    <i class="bi bi-check-all"></i> Todos
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="seleccionarTodosRapido(false)">
+                                    <i class="bi bi-x"></i> Ninguno
+                                </button>
+                            </div>
+                        </div>
+                        <div id="listaDestinatariosRapido" style="
+                            max-height: 220px;
+                            overflow-y: auto;
+                            border: 1px solid #e0e0e0;
+                            border-radius: 8px;
+                            padding: 10px;
+                            background: #f8f9fa;
+                        ">
+                            <div class="text-center text-muted py-3">
+                                <span class="spinner-border spinner-border-sm me-2"></span> Cargando...
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Motivo</label>
+                        <textarea name="motivo" class="form-control" rows="3" 
+                                  placeholder="Ej: Ruido anormal, vibración, falla en encendido..."></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Sugerido por <span class="text-danger">*</span></label>
+                        <input type="text" name="usuario" class="form-control" placeholder="Tu nombre" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn" style="background:#e68a00;color:white;font-weight:600;">
+                        <i class="bi bi-send me-1"></i> Enviar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tiposLabels = [{% for t,c in stats.por_tipo %}{% if t %}'{{ t }}'{% else %}'Sin tipo'{% endif %},{% endfor %}];
+    const tiposValues = [{% for t,c in stats.por_tipo %}{{ c }},{% endfor %}];
+    const colores = ['#1a237e','#0d47a1','#00bcd4','#00c853','#ffab00','#d32f2f','#6a1b9a','#00897b'];
+    if (tiposLabels.length > 0) {
+        new Chart(document.getElementById('chartTipos'), {type: 'doughnut',
+            data: {labels: tiposLabels, datasets: [{data: tiposValues, backgroundColor: colores.slice(0,tiposLabels.length), borderWidth: 2, borderColor: '#fff'}]},
+            options: {responsive: true, maintainAspectRatio: false, cutout: '60%',
+                plugins: {legend: {position: 'right', labels: {usePointStyle: true, padding: 10, font: {size: 11}}}}}
+        });
+    }
+
+    const estadosLabels = [{% for e,c in stats.por_estado %}'{{ e }}',{% endfor %}];
+    const estadosValues = [{% for e,c in stats.por_estado %}{{ c }},{% endfor %}];
+    const coloresEstado = {'Operativa':'#00c853','En mantenimiento':'#ffab00','Fuera de servicio':'#d32f2f'};
+    if (estadosLabels.length > 0) {
+        new Chart(document.getElementById('chartEstados'), {type: 'bar',
+            data: {labels: estadosLabels, datasets: [{label: 'Máquinas', data: estadosValues, backgroundColor: estadosLabels.map(e => coloresEstado[e] || '#1a237e'), borderRadius: 6}]},
+            options: {responsive: true, maintainAspectRatio: false,
+                plugins: {legend: {display: false}},
+                scales: {y: {beginAtZero: true, ticks: {stepSize: 1}}, x: {grid: {display: false}}}}
+        });
+    }
+
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.maquina-checkbox');
+    const contador = document.getElementById('contadorSeleccionados');
+    function actContador() { contador.textContent = document.querySelectorAll('.maquina-checkbox:checked').length; }
+    if (selectAll) selectAll.addEventListener('change', function() { checkboxes.forEach(cb => cb.checked = this.checked); actContador(); });
+    checkboxes.forEach(cb => cb.addEventListener('change', actContador));
+});
+
+function sugerirCorrectivoRapido(id, codigo, nombre) {
+    document.getElementById('formSugerirRapido').action = `/maquina/${id}/sugerir-correctivo`;
+    document.getElementById('sugerirEquipo').value = `${codigo} — ${nombre}`;
+    
+    const contenedor = document.getElementById('listaDestinatariosRapido');
+    
+    if (contenedor.dataset.cargado !== 'true') {
+        contenedor.innerHTML = '<div class="text-center text-muted py-3"><span class="spinner-border spinner-border-sm me-2"></span> Cargando...</div>';
+        
+        fetch('/api/destinatarios')
+            .then(r => r.json())
+            .then(data => {
+                if (data.length === 0) {
+                    contenedor.innerHTML = `<div class="text-center text-muted py-3">
+                        <i class="bi bi-envelope-slash fs-3 d-block mb-2"></i>
+                        No hay destinatarios activos. Ve a <a href="/configuracion">Configuración</a>.
+                    </div>`;
+                    return;
+                }
+                
+                contenedor.innerHTML = data.map(d => `
+                    <div class="form-check p-2 rounded" style="border-bottom: 1px solid #f0f0f0;">
+                        <input class="form-check-input destinatario-check-rapido" type="checkbox" 
+                               name="destinatarios" value="${d.id}" id="rdest${d.id}">
+                        <label class="form-check-label w-100" for="rdest${d.id}" style="cursor: pointer;">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong style="font-size:14px;">${d.nombre}</strong>
+                                    <small class="text-muted d-block">${d.email}</small>
+                                </div>
+                                <div>
+                                    ${d.recibe_correctivos 
+                                        ? '<span class="badge bg-success"><i class="bi bi-check-circle"></i></span>' 
+                                        : '<span class="badge bg-secondary"><i class="bi bi-x-circle"></i></span>'}
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                `).join('');
+                
+                contenedor.dataset.cargado = 'true';
+            })
+            .catch(err => {
+                contenedor.innerHTML = `<div class="text-danger text-center py-3">Error: ${err.message}</div>`;
+            });
+    }
+    
+    new bootstrap.Modal(document.getElementById('modalSugerirRapido')).show();
+}
+
+function seleccionarTodosRapido(seleccionar) {
+    document.querySelectorAll('.destinatario-check-rapido').forEach(cb => cb.checked = seleccionar);
+}
+
+function generarEtiquetasSeleccionadas() {
+    const sel = document.querySelectorAll('.maquina-checkbox:checked');
+    if (sel.length === 0) {
+        if (confirm('No hay selección. ¿Generar para TODAS?')) window.open('/etiquetas', '_blank');
+        return;
+    }
+    const ids = Array.from(sel).map(cb => cb.value);
+    window.open('/etiquetas?ids=' + ids.join(','), '_blank');
+}
+
+async function exportarPDF() {
+    const btn = event.target.closest('button');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Generando...';
+    btn.disabled = true;
+    try {
+        const r = await fetch('/api/datos-maquinas-pdf?' + new URLSearchParams(window.location.search));
+        const data = await r.json();
+        if (data.datos.length === 0) { alert('Sin máquinas'); return; }
+
+        const filas = [[
+            {text:'Código',style:'th'},{text:'Serial',style:'th'},{text:'Tipo',style:'th'},{text:'Nombre',style:'th'},
+            {text:'Marca/Modelo',style:'th'},{text:'Ubicación',style:'th'},{text:'Frecuencia',style:'th'},
+            {text:'Criticidad',style:'th'},{text:'Estado',style:'th'},{text:'Mant.',style:'th',alignment:'center'},
+            {text:'Últ. Mant.',style:'th',alignment:'center'}
+        ]];
+        data.datos.forEach(m => filas.push([
+            {text:m.codigo,bold:true,fontSize:8},{text:m.serial,fontSize:7},
+            {text:m.tipo_codigo,fontSize:8,color:'#666'},{text:m.nombre,fontSize:8},
+            {text:`${m.marca}\n${m.modelo}`,fontSize:7,color:'#666'},{text:m.ubicacion,fontSize:7},
+            {text:m.frecuencia,fontSize:7,color:'#0d47a1'},{text:m.criticidad,fontSize:7,color:'#666'},
+            {text:m.estado,fontSize:7},{text:`${m.total_mant}`,alignment:'center',fontSize:8,bold:true},
+            {text:m.ultimo_mant,alignment:'center',fontSize:7,color:'#666'}
+        ]));
+
+        const doc = {
+            pageSize:'A4', pageOrientation:'landscape', pageMargins:[30,50,30,50],
+            header: (cp, pc) => ({columns:[{text:'📋 PARQUE DE MÁQUINAS',fontSize:16,bold:true,color:'#1a237e',width:'*'},{text:`Página ${cp} de ${pc}`,alignment:'right',fontSize:9,color:'#666',margin:[0,8,0,0],width:'auto'}],margin:[30,15,30,0]}),
+            footer: () => ({text:`Generado el ${new Date().toLocaleString('es-CO')}`,alignment:'center',fontSize:8,color:'#999',margin:[0,20,0,0]}),
+            content: [
+                {text:`Generado: ${new Date().toLocaleString('es-CO')}`,alignment:'right',fontSize:9,color:'#666',margin:[0,0,0,15]},
+                {text:'RESUMEN',fontSize:12,bold:true,color:'#0d47a1',margin:[0,0,0,8]},
+                {table:{widths:['*','*','*','*'],body:[
+                    [{text:'Total',style:'th',alignment:'center'},{text:'Preventivos',style:'th',alignment:'center'},{text:'Correctivos',style:'th',alignment:'center'},{text:'Total Mant.',style:'th',alignment:'center'}],
+                    [{text:`${data.resumen.total_maquinas}`,fontSize:16,bold:true,alignment:'center',color:'#1a237e'},{text:`${data.resumen.total_preventivos}`,fontSize:16,bold:true,alignment:'center',color:'#00bcd4'},{text:`${data.resumen.total_correctivos}`,fontSize:16,bold:true,alignment:'center',color:'#d32f2f'},{text:`${data.resumen.total_mantenimientos}`,fontSize:16,bold:true,alignment:'center',color:'#0d47a1'}]
+                ]},layout:'noBorders',margin:[0,0,0,20]},
+                {text:'LISTADO',fontSize:12,bold:true,color:'#0d47a1',margin:[0,0,0,8]},
+                {table:{headerRows:1,widths:['auto','auto','auto','*','auto','auto','auto','auto','auto','auto','auto'],body:filas},
+                 layout:{fillColor:i=>i===0?'#1a237e':(i%2===0?'#f5f7fa':null),hLineWidth:()=>0.5,vLineWidth:()=>0,hLineColor:()=>'#e0e0e0',paddingLeft:()=>4,paddingRight:()=>4,paddingTop:()=>4,paddingBottom:()=>4}}
+            ],
+            styles:{th:{bold:true,fontSize:9,color:'#fff'}},
+            defaultStyle:{fontSize:9}
+        };
+        pdfMake.createPdf(doc).download(`parque_maquinas_${new Date().toISOString().slice(0,10)}.pdf`);
+    } catch(e) { alert('Error: ' + e.message); }
+    finally { btn.innerHTML = orig; btn.disabled = false; }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}{% if maquina %}Editar{% else %}Nueva{% endif %} Máquina{% endblock %}
+
+{% block content %}
+<div class="animate-in">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1"><i class="bi bi-{% if maquina %}pencil-square{% else %}plus-circle{% endif %} me-2" style="color: var(--primary);"></i>{% if maquina %}Editar{% else %}Nueva{% endif %} Máquina</h2>
+            <p class="text-muted">{% if maquina %}Actualiza los datos{% else %}Registra un nuevo equipo{% endif %}</p>
+        </div>
+        <a href="{{ url_for('listar_maquinas') }}" class="btn btn-secondary"><i class="bi bi-arrow-left me-1"></i> Volver</a>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="content-card">
+                <div class="card-body">
+                    <form method="POST">
+                        <h5 class="mb-3" style="color:var(--primary);border-bottom:2px solid var(--primary);padding-bottom:8px;">
+                            <i class="bi bi-info-circle me-2"></i>Información Básica
+                        </h5>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Tipo *</label>
+                                <select name="tipo_codigo" id="tipo_codigo" class="form-select" required>
+                                    <option value="">-- Seleccionar --</option>
+                                    {% for c,n in tipos.items() %}<option value="{{ c }}" {% if maquina and maquina.tipo_codigo==c %}selected{% endif %}>{{ c }} - {{ n }}</option>{% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Código *</label>
+                                <div class="input-group">
+                                    <input type="text" name="codigo" id="codigo" class="form-control" required value="{{ maquina.codigo if maquina else '' }}" readonly>
+                                    <button type="button" class="btn btn-outline-primary" onclick="generarCodigo()"><i class="bi bi-arrow-clockwise"></i></button>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Serial</label>
+                                <div class="input-group">
+                                    <input type="text" name="serial" id="serial" class="form-control" value="{{ maquina.serial if maquina and maquina.serial else '' }}">
+                                    <button type="button" class="btn btn-outline-primary" onclick="generarSerial()"><i class="bi bi-arrow-repeat"></i></button>
+                                </div>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label fw-semibold">Nombre *</label>
+                                <input type="text" name="nombre" class="form-control" required value="{{ maquina.nombre if maquina else '' }}" placeholder="Ej: Soldadora de aluminio 1">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Marca</label>
+                                <input type="text" name="marca" class="form-control" value="{{ maquina.marca if maquina else '' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Modelo</label>
+                                <input type="text" name="modelo" class="form-control" value="{{ maquina.modelo if maquina else '' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Ubicación</label>
+                                <input type="text" name="ubicacion" class="form-control" value="{{ maquina.ubicacion if maquina else '' }}" placeholder="Ej: Laboratorio">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Proveedor</label>
+                                <input type="text" name="proveedor" class="form-control" value="{{ maquina.proveedor if maquina else '' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Fecha de Compra</label>
+                                <input type="date" name="fecha_compra" class="form-control" value="{{ maquina.fecha_compra.strftime('%Y-%m-%d') if maquina and maquina.fecha_compra else '' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Fecha de Instalación</label>
+                                <input type="date" name="fecha_instalacion" class="form-control" value="{{ maquina.fecha_instalacion.strftime('%Y-%m-%d') if maquina and maquina.fecha_instalacion else '' }}">
+                                <small class="text-muted">Base para el inicio del cronograma</small>
+                            </div>
+                        </div>
+
+                        <h5 class="mb-3 mt-4" style="color:var(--primary);border-bottom:2px solid var(--primary);padding-bottom:8px;">
+                            <i class="bi bi-calendar-check me-2"></i>Programación de Mantenimiento
+                        </h5>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Frecuencia *</label>
+                                <select name="frecuencia" id="frecuencia" class="form-select" required onchange="togglePersonalizada()">
+                                    {% for c,cfg in frecuencias.items() %}
+                                        <option value="{{ c }}" {% if maquina and maquina.frecuencia==c %}selected{% endif %} {% if not maquina and c=='mensual' %}selected{% endif %}>{{ cfg.nombre }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4" id="diasPersonalizados" style="display:none;">
+                                <label class="form-label fw-semibold">Días entre mantenimientos *</label>
+                                <input type="number" name="frecuencia_dias" id="frecuencia_dias" class="form-control" min="1" max="3650" value="{{ maquina.frecuencia_dias if maquina else 30 }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Criticidad *</label>
+                                <select name="criticidad" class="form-select" required>
+                                    {% for c,cfg in criticidades.items() %}
+                                        <option value="{{ c }}" {% if maquina and maquina.criticidad==c %}selected{% endif %} {% if not maquina and c=='nada_critico' %}selected{% endif %}>{{ cfg.nombre }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Estado</label>
+                                <select name="estado" class="form-select">
+                                    <option value="Operativa" {% if maquina and maquina.estado=='Operativa' %}selected{% endif %}>Operativa</option>
+                                    <option value="En mantenimiento" {% if maquina and maquina.estado=='En mantenimiento' %}selected{% endif %}>En mantenimiento</option>
+                                    <option value="Fuera de servicio" {% if maquina and maquina.estado=='Fuera de servicio' %}selected{% endif %}>Fuera de servicio</option>
+                                </select>
+                            </div>
+                            {% if maquina %}
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Próximo (calculado)</label>
+                                <input type="text" class="form-control" readonly value="{{ maquina.proxima_fecha_calculada.strftime('%d/%m/%Y') if maquina.proxima_fecha_calculada else 'Sin programar' }}">
+                            </div>
+                            {% endif %}
+                            <div class="col-12">
+                                <div class="form-check form-switch p-3 rounded-3" style="background:#f5f7fa;border:1px solid #e0e0e0;">
+                                    <input class="form-check-input" type="checkbox" name="notificar_mantenimiento" id="notificar_mantenimiento" {% if not maquina or maquina.notificar_mantenimiento %}checked{% endif %}>
+                                    <label class="form-check-label fw-semibold" for="notificar_mantenimiento">
+                                        <i class="bi bi-envelope-check me-1"></i> Enviar notificaciones por correo
+                                    </label>
+                                    <small class="d-block text-muted mt-1">
+                                        <i class="bi bi-info-circle"></i> Las máquinas "No Crítico" no notifican por defecto.
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Observaciones</label>
+                                <textarea name="observaciones" class="form-control" rows="3">{{ maquina.observaciones if maquina else '' }}</textarea>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-corporate"><i class="bi bi-save me-1"></i> Guardar</button>
+                            <a href="{{ url_for('listar_maquinas') }}" class="btn btn-secondary">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('tipo_codigo').addEventListener('change', function() {
+    const tipo = this.value;
+    if (!tipo) return;
+    fetch(`/api/generar-codigo/${tipo}`).then(r => r.json()).then(data => {
+        if (data.success) {
+            document.getElementById('codigo').value = data.codigo;
+            const s = document.getElementById('serial');
+            if (!s.value || s.value === 'None') s.value = data.serial;
+        }
+    });
+});
+function generarCodigo() {
+    const t = document.getElementById('tipo_codigo').value;
+    if (!t) { alert('Selecciona tipo'); return; }
+    fetch(`/api/generar-codigo/${t}`).then(r=>r.json()).then(d => { if (d.success) document.getElementById('codigo').value = d.codigo; });
+}
+function generarSerial() {
+    const t = document.getElementById('tipo_codigo').value;
+    if (!t) { alert('Selecciona tipo'); return; }
+    fetch(`/api/generar-codigo/${t}`).then(r=>r.json()).then(d => { if (d.success) document.getElementById('serial').value = d.serial; });
+}
+function togglePersonalizada() {
+    const f = document.getElementById('frecuencia').value;
+    const c = document.getElementById('diasPersonalizados');
+    const i = document.getElementById('frecuencia_dias');
+    if (f === 'personalizada') { c.style.display = 'block'; i.required = true; }
+    else { c.style.display = 'none'; i.required = false; }
+}
+document.addEventListener('DOMContentLoaded', togglePersonalizada);
+</script>
+{% endblock %}

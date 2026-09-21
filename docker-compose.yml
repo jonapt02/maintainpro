@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  maintainpro:
+    build: .
+    container_name: maintainpro_app
+    image: maintainpro:latest
+    ports:
+      - "5500:5500"
+    volumes:
+      - ./instance:/app/instance
+      - ./templates:/app/templates
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=production
+      - PORT=5500
+    restart: unless-stopped
+    networks:
+      - maintainpro_network
+
+networks:
+  maintainpro_network:
+    driver: bridge

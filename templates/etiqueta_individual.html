@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+
+{% block title %}Etiqueta - {{ maquina.codigo }}{% endblock %}
+
+{% block content %}
+<div class="animate-in">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="bi bi-tag-fill me-2" style="color: var(--primary);"></i>
+                Etiqueta de Equipo
+            </h2>
+            <p class="text-muted">{{ maquina.codigo }} - {{ maquina.nombre }}</p>
+        </div>
+        <a href="{{ url_for('listar_maquinas') }}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Volver
+        </a>
+    </div>
+
+    <!-- Selector de tamaño y botones -->
+    <div class="content-card mb-4">
+        <div class="card-header">
+            <span><i class="bi bi-gear-fill me-2" style="color: var(--primary);"></i>Configuración de la Etiqueta</span>
+        </div>
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Tamaño de etiqueta</label>
+                    <select id="selectorTamano" class="form-select" onchange="cambiarTamano()">
+                        {% for clave, config in tamanos.items() %}
+                            <option value="{{ clave }}" {% if clave == tamano %}selected{% endif %}>
+                                {{ config.nombre }} - {{ config.descripcion }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-8">
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button onclick="imprimirEtiqueta()" class="btn btn-corporate">
+                            <i class="bi bi-printer me-1"></i> Imprimir
+                        </button>
+                        <button onclick="descargarPDF()" class="btn btn-danger">
+                            <i class="bi bi-file-pdf me-1"></i> Descargar PDF
+                        </button>
+                        <button onclick="descargarJPG()" class="btn btn-primary">
+                            <i class="bi bi-file-image me-1"></i> Descargar JPG
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vista previa -->
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="content-card">
+                <div class="card-header">
+                    <span><i class="bi bi-eye me-2" style="color: var(--primary);"></i>Vista Previa</span>
+                    <span class="badge bg-secondary" id="badgeTamano">{{ tamano_actual.descripcion }}</span>
+                </div>
+                <div class="card-body text-center" style="background: #f0f2f5; padding: 30px;">
+                    <div id="etiqueta-wrapper" style="display: inline-block;">
+                        <!-- ETIQUETA - Los estilos se ajustan dinámicamente según el tamaño -->
+                        <div id="etiqueta" style="
+                            width: {{ tamano_actual.ancho * 37.8 }}px;
+                            height: {{ tamano_actual.alto * 37.8 }}px;
+                            border: 3px solid #1a237e;
+                            border-radius: 10px;
+                            padding: {{ 15 if tamano == 'pequena' else 20 }}px;
+                            display: flex;
+                            flex-direction: column;
+                            background: white;
+                            text-align: left;
+                            box-sizing: border-box;
+                            transition: all 0.3s ease;
+                        ">
+                            <!-- Encabezado -->
+                            <div style="
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                border-bottom: 2px solid #1a237e;
+                                padding-bottom: {{ 4 if tamano == 'pequena' else 8 }}px;
+                                margin-bottom: {{ 6 if tamano == 'pequena' else 12 }}px;
+                                flex-shrink: 0;
+                            ">
+                                <div style="
+                                    font-size: {{ 9 if tamano == 'pequena' else 12 }}px;
+                                    color: #1a237e;
+                                    font-weight: 700;
+                                    letter-spacing: 1.5px;
+                                ">
+                                    ⚙ MAINTAINPRO
+                                </div>
+                                <div style="font-size: {{ 8 if tamano == 'pequena' else 10 }}px; color: #666;">
+                                    {{ maquina.tipo_nombre if maquina.tipo_codigo else 'Equipo' }}
+                                </div>
+                            </div>
+
+                            <!-- Código -->
+                            <div style="
+                                font-size: {{ 22 if tamano == 'pequena' else (42 if tamano == 'mediana' else 52) }}px;
+                                font-weight: 900;
+                                color: #1a237e;
+                                line-height: 1;
+                                margin-bottom: {{ 3 if tamano == 'pequena' else 6 }}px;
+                                flex-shrink: 0;
+                            ">
+                                {{ maquina.codigo }}
+                            </div>
+
+                            <!-- Nombre -->
+                            <div style="
+                                font-size: {{ 10 if tamano == 'pequena' else (15 if tamano == 'mediana' else 18) }}px;
+                                font-weight: 600;
+                                color: #333;
+                                margin-bottom: {{ 6 if tamano == 'pequena' else 12 }}px;
+                                line-height: 1.2;
+                                flex-shrink: 0;
+                            ">
+                                {{ maquina.nombre }}
+                            </div>
+
+                            <!-- Info -->
+                            <div style="
+                                display: grid;
+                                grid-template-columns: 1fr 1fr;
+                                gap: {{ '3px 8px' if tamano == 'pequena' else '6px 15px' }};
+                                font-size: {{ 8 if tamano == 'pequena' else 11 }}px;
+                                color: #555;
+                                margin-top: auto;
+                                flex: 1;
+                                align-content: end;
+                            ">
+                                <div><strong style="color: #1a237e;">Marca:</strong> {{ maquina.marca or '-' }}</div>
+                                <div><strong style="color: #1a237e;">Modelo:</strong> {{ maquina.modelo or '-' }}</div>
+                                <div><strong style="color: #1a237e;">Serial:</strong> {{ maquina.serial or '-' }}</div>
+                                <div><strong style="color: #1a237e;">Ubicación:</strong> {{ maquina.ubicacion or '-' }}</div>
+                            </div>
+
+                            <!-- Pie -->
+                            <div style="
+                                margin-top: {{ 6 if tamano == 'pequena' else 12 }}px;
+                                padding-top: {{ 4 if tamano == 'pequena' else 8 }}px;
+                                border-top: 1px solid #ddd;
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                font-size: {{ 8 if tamano == 'pequena' else 10 }}px;
+                                color: #666;
+                                flex-shrink: 0;
+                            ">
+                                <span>
+                                    <strong>Estado:</strong> 
+                                    <span style="color: {% if maquina.estado == 'Operativa' %}#2e7d32{% elif maquina.estado == 'En mantenimiento' %}#e65100{% else %}#c62828{% endif %}; font-weight: 600;">
+                                        {{ maquina.estado }}
+                                    </span>
+                                </span>
+                                <span style="color: #999;">{{ now.strftime('%d/%m/%Y') if now else '' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+
+<script>
+// Configuración de tamaños (en cm)
+const TAMANOS = {
+    pequena: {nombre: 'Pequeña', ancho: 6, alto: 4, pxW: 227, pxH: 151, padding: 15, fontCodigo: 22, fontNombre: 10, fontInfo: 8},
+    mediana: {nombre: 'Mediana', ancho: 10, alto: 6, pxW: 378, pxH: 227, padding: 20, fontCodigo: 42, fontNombre: 15, fontInfo: 11},
+    grande:  {nombre: 'Grande', ancho: 15, alto: 10, pxW: 567, pxH: 378, padding: 25, fontCodigo: 52, fontNombre: 18, fontInfo: 13},
+    a6:      {nombre: 'A6', ancho: 10.5, alto: 14.8, pxW: 397, pxH: 560, padding: 25, fontCodigo: 48, fontNombre: 16, fontInfo: 12}
+};
+
+const MAQUINA_DATA = {
+    codigo: "{{ maquina.codigo }}",
+    nombre: "{{ maquina.nombre }}",
+    tipo: "{{ maquina.tipo_nombre if maquina.tipo_codigo else 'Equipo' }}",
+    marca: "{{ maquina.marca or '-' }}",
+    modelo: "{{ maquina.modelo or '-' }}",
+    serial: "{{ maquina.serial or '-' }}",
+    ubicacion: "{{ maquina.ubicacion or '-' }}",
+    estado: "{{ maquina.estado }}",
+    fecha: "{{ now.strftime('%d/%m/%Y') if now else '' }}"
+};
+
+// Cambiar tamaño (recarga la página con el parámetro)
+function cambiarTamano() {
+    const tamano = document.getElementById('selectorTamano').value;
+    window.location.href = `/etiquetas/{{ maquina.id }}?tamano=${tamano}`;
+}
+
+// ============================================================
+// DESCARGAR COMO JPG
+// ============================================================
+async function descargarJPG() {
+    try {
+        const etiqueta = document.getElementById('etiqueta');
+        const tamanoActual = document.getElementById('selectorTamano').value;
+        const config = TAMANOS[tamanoActual];
+        
+        const canvas = await html2canvas(etiqueta, {
+            scale: 4,  // 4x para alta resolución
+            backgroundColor: '#ffffff',
+            useCORS: true,
+            logging: false
+        });
+        
+        const link = document.createElement('a');
+        link.download = `etiqueta_${MAQUINA_DATA.codigo}_${tamanoActual}.jpg`;
+        link.href = canvas.toDataURL('image/jpeg', 0.95);
+        link.click();
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error al generar la imagen: ' + error.message);
+    }
+}
+
+// ============================================================
+// GENERAR PDF
+// ============================================================
+async function generarPDFEtiqueta() {
+    const etiqueta = document.getElementById('etiqueta');
+    const tamanoActual = document.getElementById('selectorTamano').value;
+    const config = TAMANOS[tamanoActual];
+    
+    const canvas = await html2canvas(etiqueta, {
+        scale: 4,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false
+    });
+    
+    const imgData = canvas.toDataURL('image/png');
+    
+    // Convertir cm a puntos (1 cm = 28.3465 pt)
+    const anchoPuntos = config.ancho * 28.3465;
+    const altoPuntos = config.alto * 28.3465;
+    
+    const docDefinition = {
+        pageSize: {
+            width: anchoPuntos,
+            height: altoPuntos
+        },
+        pageMargins: [0, 0, 0, 0],
+        content: [
+            {
+                image: imgData,
+                width: anchoPuntos,
+                height: altoPuntos
+            }
+        ]
+    };
+    
+    return pdfMake.createPdf(docDefinition);
+}
+
+// ============================================================
+// DESCARGAR PDF
+// ============================================================
+async function descargarPDF() {
+    try {
+        const tamanoActual = document.getElementById('selectorTamano').value;
+        const pdf = await generarPDFEtiqueta();
+        pdf.download(`etiqueta_${MAQUINA_DATA.codigo}_${tamanoActual}.pdf`);
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error al generar el PDF: ' + error.message);
+    }
+}
+
+// ============================================================
+// IMPRIMIR
+// ============================================================
+async function imprimirEtiqueta() {
+    const btn = event.target.closest('button');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Preparando...';
+    btn.disabled = true;
+    
+    try {
+        const pdf = await generarPDFEtiqueta();
+        pdf.open();
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error al generar la impresión: ' + error.message);
+    } finally {
+        setTimeout(() => {
+            btn.innerHTML = originalHTML;
+            btn.disabled = false;
+        }, 1000);
+    }
+}
+</script>
+{% endblock %}

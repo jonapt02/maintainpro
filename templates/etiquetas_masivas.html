@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+
+{% block title %}Etiquetas Masivas{% endblock %}
+
+{% block content %}
+<div class="animate-in">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="bi bi-tags-fill me-2" style="color: var(--primary);"></i>
+                Etiquetas Masivas
+            </h2>
+            <p class="text-muted">{{ maquinas|length }} etiquetas - Tamaño: {{ tamano_actual.descripcion }}</p>
+        </div>
+        <a href="{{ url_for('listar_maquinas') }}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Volver
+        </a>
+    </div>
+
+    <!-- Configuración -->
+    <div class="content-card mb-4">
+        <div class="card-header">
+            <span><i class="bi bi-gear-fill me-2" style="color: var(--primary);"></i>Configuración</span>
+        </div>
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Tamaño de etiquetas</label>
+                    <select id="selectorTamano" class="form-select">
+                        {% for clave, config in tamanos.items() %}
+                            <option value="{{ clave }}" {% if clave == tamano %}selected{% endif %}>
+                                {{ config.nombre }} - {{ config.descripcion }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-8">
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button onclick="aplicarTamano()" class="btn btn-outline-primary">
+                            <i class="bi bi-arrow-clockwise me-1"></i> Aplicar Tamaño
+                        </button>
+                        <button onclick="imprimirEtiquetas()" class="btn btn-corporate">
+                            <i class="bi bi-printer me-1"></i> Imprimir
+                        </button>
+                        <button onclick="descargarPDFMasivo()" class="btn btn-danger">
+                            <i class="bi bi-file-pdf me-1"></i> Descargar PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vista previa -->
+    <div class="content-card">
+        <div class="card-header">
+            <span><i class="bi bi-eye me-2" style="color: var(--primary);"></i>Vista Previa</span>
+            <span class="badge bg-secondary">{{ maquinas|length }} etiquetas</span>
+        </div>
+        <div class="card-body" style="background: #f0f2f5;">
+            <div id="etiquetas-grid" data-tamano="{{ tamano }}">
+                {% for maquina in maquinas %}
+                <div class="etiqueta-item">
+                    <div class="etiq-header">
+                        <span class="etiq-brand">⚙ MAINTAINPRO</span>
+                        <span class="etiq-tipo">{{ maquina.tipo_nombre if maquina.tipo_codigo else 'Equipo' }}</span>
+                    </div>
+                    <div class="etiq-codigo">{{ maquina.codigo }}</div>
+                    <div class="etiq-nombre">{{ maquina.nombre }}</div>
+                    <div class="etiq-info">
+                        <div><strong>Marca:</strong> {{ maquina.marca or '-' }}</div>
+                        <div><strong>Modelo:</strong> {{ maquina.modelo or '-' }}</div>
+                        <div><strong>Serial:</strong> {{ maquina.serial or '-' }}</div>
+                        <div><strong>Ubicación:</strong> {{ maquina.ubicacion or '-' }}</div>
+                    </div>
+                    <div class="etiq-footer">
+                        <span>
+                            <strong>Estado:</strong> 
+                            <span class="estado-{{ maquina.estado|lower|replace(' ', '-') }}">{{ maquina.estado }}</span>
+                        </span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Tamaños dinámicos según data-tamano */
+    #etiquetas-grid[data-tamano="pequena"] {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+    }
+    #etiquetas-grid[data-tamano="pequena"] .etiqueta-item {
+        height: 130px;
+        padding: 8px;
+        font-size: 0.85em;
+    }
+    #etiquetas-grid[data-tamano="pequena"] .etiq-codigo { font-size: 20px; }
+    #etiquetas-grid[data-tamano="pequena"] .etiq-nombre { font-size: 9px; height: 22px; }
+    #etiquetas-grid[data-tamano="pequena"] .etiq-info { font-size: 7px; }
+    #etiquetas-grid[data-tamano="pequena"] .etiq-brand { font-size: 8px; }
+    #etiquetas-grid[data-tamano="pequena"] .etiq-tipo { font-size: 7px; }
+    #etiquetas-grid[data-tamano="pequena"] .etiq-footer { font-size: 7px; }
+    
+    #etiquetas-grid[data-tamano="mediana"] {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+    #etiquetas-grid[data-tamano="mediana"] .etiqueta-item { height: 220px; }
+    
+    #etiquetas-grid[data-tamano="grande"] {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    #etiquetas-grid[data-tamano="grande"] .etiqueta-item { height: 350px; }
+    #etiquetas-grid[data-tamano="grande"] .etiq-codigo { font-size: 48px; }
+    #etiquetas-grid[data-tamano="grande"] .etiq-nombre { font-size: 16px; height: 40px; }
+    
+    #etiquetas-grid[data-tamano="a6"] {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+    }
+    #etiquetas-grid[data-tamano="a6"] .etiqueta-item { height: 400px; }
+    
+    .etiqueta-item {
+        border: 2px solid #1a237e;
+        border-radius: 8px;
+        padding: 12px;
+        background: white;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        box-sizing: border-box;
+    }
+    .etiq-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1.5px solid #1a237e;
+        padding-bottom: 6px;
+        margin-bottom: 8px;
+    }
+    .etiq-brand {
+        font-size: 10px;
+        font-weight: 700;
+        color: #1a237e;
+        letter-spacing: 1px;
+    }
+    .etiq-tipo {
+        font-size: 9px;
+        color: #666;
+        font-weight: 500;
+    }
+    .etiq-codigo {
+        font-size: 32px;
+        font-weight: 900;
+        color: #1a237e;
+        line-height: 1;
+        margin-bottom: 4px;
+    }
+    .etiq-nombre {
+        font-size: 12px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 8px;
+        line-height: 1.2;
+        height: 30px;
+        overflow: hidden;
+    }
+    .etiq-info {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 3px 10px;
+        font-size: 9px;
+        color: #555;
+        flex: 1;
+    }
+    .etiq-footer {
+        margin-top: 6px;
+        padding-top: 6px;
+        border-top: 1px solid #ddd;
+        font-size: 9px;
+        color: #666;
+    }
+    .estado-operativa { color: #2e7d32; font-weight: 600; }
+    .estado-en-mantenimiento { color: #e65100; font-weight: 600; }
+    .estado-fuera-de-servicio { color: #c62828; font-weight: 600; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+
+<script>
+const TAMANOS = {
+    pequena: {ancho: 6, alto: 4, porFila: 3},
+    mediana: {ancho: 10, alto: 6, porFila: 2},
+    grande:  {ancho: 15, alto: 10, porFila: 1},
+    a6:      {ancho: 10.5, alto: 14.8, porFila: 1}
+};
+
+// Aplicar tamaño (recarga la página con el parámetro)
+function aplicarTamano() {
+    const tamano = document.getElementById('selectorTamano').value;
+    const urlParams = new URLSearchParams(window.location.search);
+    const ids = urlParams.get('ids');
+    
+    let url = `/etiquetas?tamano=${tamano}`;
+    if (ids) url += `&ids=${ids}`;
+    
+    window.location.href = url;
+}
+
+// ============================================================
+// GENERAR PDF MASIVO
+// ============================================================
+async function generarPDFMasivo() {
+    const etiquetas = document.querySelectorAll('.etiqueta-item');
+    const tamano = document.getElementById('selectorTamano').value;
+    const config = TAMANOS[tamano];
+    
+    // Convertir cm a puntos
+    const anchoPuntos = config.ancho * 28.3465;
+    const altoPuntos = config.alto * 28.3465;
+    
+    // Generar imágenes de cada etiqueta
+    const imagenes = [];
+    for (const el of etiquetas) {
+        const canvas = await html2canvas(el, {
+            scale: 3,
+            backgroundColor: '#ffffff',
+            useCORS: true,
+            logging: false
+        });
+        imagenes.push(canvas.toDataURL('image/png'));
+    }
+    
+    // Determinar cuántas caben por fila en A4 (21cm x 29.7cm)
+    const anchoA4 = 21 * 28.3465 - 40; // margen
+    const altoA4 = 29.7 * 28.3465 - 40;
+    
+    const etiquetasPorFila = Math.max(1, Math.floor(anchoA4 / anchoPuntos));
+    const filasPorPagina = Math.max(1, Math.floor(altoA4 / altoPuntos));
+    const etiquetasPorPagina = etiquetasPorFila * filasPorPagina;
+    
+    // Construir contenido del PDF
+    const contenido = [];
+    let filaActual = [];
+    
+    for (let i = 0; i < imagenes.length; i++) {
+        filaActual.push({
+            width: anchoPuntos,
+            image: imagenes[i],
+            margin: [0, 0, 5, 5]
+        });
+        
+        if (filaActual.length === etiquetasPorFila || i === imagenes.length - 1) {
+            // Completar la fila si falta
+            while (filaActual.length < etiquetasPorFila) {
+                filaActual.push({width: anchoPuntos, text: ''});
+            }
+            
+            contenido.push({
+                columns: filaActual,
+                margin: [0, 0, 0, 5]
+            });
+            
+            filaActual = [];
+            
+            // Salto de página si ya tenemos suficientes filas
+            if (contenido.length % filasPorPagina === 0 && i < imagenes.length - 1) {
+                contenido.push({text: '', pageBreak: 'after'});
+            }
+        }
+    }
+    
+    const docDefinition = {
+        pageSize: 'A4',
+        pageMargins: [20, 20, 20, 20],
+        content: contenido,
+        defaultStyle: {fontSize: 9}
+    };
+    
+    return pdfMake.createPdf(docDefinition);
+}
+
+// ============================================================
+// DESCARGAR PDF MASIVO
+// ============================================================
+async function descargarPDFMasivo() {
+    const btn = event.target.closest('button');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Generando...';
+    btn.disabled = true;
+    
+    try {
+        const pdf = await generarPDFMasivo();
+        const tamano = document.getElementById('selectorTamano').value;
+        pdf.download(`etiquetas_${tamano}_${new Date().toISOString().slice(0,10)}.pdf`);
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error al generar el PDF: ' + error.message);
+    } finally {
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+    }
+}
+
+// ============================================================
+// IMPRIMIR MASIVO
+// ============================================================
+async function imprimirEtiquetas() {
+    const btn = event.target.closest('button');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Preparando...';
+    btn.disabled = true;
+    
+    try {
+        const pdf = await generarPDFMasivo();
+        pdf.open();
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error al generar la impresión: ' + error.message);
+    } finally {
+        setTimeout(() => {
+            btn.innerHTML = originalHTML;
+            btn.disabled = false;
+        }, 1000);
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Configuración{% endblock %}
+
+{% block content %}
+<div class="animate-in">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1"><i class="bi bi-envelope-paper me-2" style="color: var(--primary);"></i>Configuración de Correos</h2>
+            <p class="text-muted">Gestión de destinatarios de notificaciones</p>
+        </div>
+    </div>
+
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i> Los destinatarios reciben notificaciones según el tipo de mantenimiento que elijan.
+    </div>
+
+    <div class="content-card mb-4">
+        <div class="card-header">
+            <span><i class="bi bi-people-fill me-2" style="color: var(--primary);"></i>Destinatarios</span>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="probarCorreo()"><i class="bi bi-envelope-check me-1"></i> Probar</button>
+                <button type="button" class="btn btn-sm btn-corporate" data-bs-toggle="modal" data-bs-target="#modalNuevoDestinatario"><i class="bi bi-plus-circle me-1"></i> Agregar</button>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            {% if destinatarios %}
+            <div class="table-responsive">
+                <table class="table table-corporate mb-0">
+                    <thead><tr><th>Nombre</th><th>Email</th><th>Área</th><th>Notificaciones</th><th>Estado</th><th>Acciones</th></tr></thead>
+                    <tbody>
+                    {% for d in destinatarios %}
+                        <tr>
+                            <td><strong>{{ d.nombre }}</strong></td>
+                            <td><a href="mailto:{{ d.email }}" class="text-decoration-none"><i class="bi bi-envelope me-1"></i>{{ d.email }}</a></td>
+                            <td>{{ d.area or '-' }}</td>
+                            <td>
+                                {% if d.recibe_preventivos %}<span class="badge bg-info me-1">Preventivos</span>{% endif %}
+                                {% if d.recibe_correctivos %}<span class="badge bg-danger me-1">Correctivos</span>{% endif %}
+                                {% if d.recibe_vencidos %}<span class="badge bg-warning text-dark">Vencidos</span>{% endif %}
+                            </td>
+                            <td>{% if d.activo %}<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Activo</span>{% else %}<span class="badge bg-secondary">Inactivo</span>{% endif %}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('toggle_destinatario', id=d.id) }}" class="btn btn-outline-{% if d.activo %}warning{% else %}success{% endif %}">
+                                        <i class="bi bi-{% if d.activo %}pause-circle{% else %}play-circle{% endif %}"></i>
+                                    </a>
+                                    <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalEditar{{ d.id }}"><i class="bi bi-pencil"></i></button>
+                                    <a href="{{ url_for('eliminar_destinatario', id=d.id) }}" class="btn btn-outline-danger" onclick="return confirm('¿Eliminar?')"><i class="bi bi-trash"></i></a>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-envelope display-4 text-muted d-block"></i>
+                <p class="text-muted mt-3">Sin destinatarios</p>
+                <button class="btn btn-corporate" data-bs-toggle="modal" data-bs-target="#modalNuevoDestinatario"><i class="bi bi-plus-circle me-1"></i> Agregar Primero</button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal nuevo -->
+<div class="modal fade" id="modalNuevoDestinatario" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('crear_destinatario') }}">
+                <div class="modal-header" style="background:var(--primary);color:white;">
+                    <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>Nuevo Destinatario</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3"><label class="form-label fw-semibold">Nombre *</label><input type="text" name="nombre" class="form-control" required></div>
+                    <div class="mb-3"><label class="form-label fw-semibold">Email *</label><input type="email" name="email" class="form-control" required></div>
+                    <div class="mb-3"><label class="form-label">Área</label><input type="text" name="area" class="form-control"></div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Recibe notificaciones de:</label>
+                        <div class="form-check"><input class="form-check-input" type="checkbox" name="recibe_preventivos" id="np" checked><label class="form-check-label" for="np"><span class="badge bg-info">Preventivos</span></label></div>
+                        <div class="form-check"><input class="form-check-input" type="checkbox" name="recibe_correctivos" id="nc" checked><label class="form-check-label" for="nc"><span class="badge bg-danger">Correctivos</span></label></div>
+                        <div class="form-check"><input class="form-check-input" type="checkbox" name="recibe_vencidos" id="nv" checked><label class="form-check-label" for="nv"><span class="badge bg-warning text-dark">Vencidos</span></label></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-corporate"><i class="bi bi-save me-1"></i> Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modales editar -->
+{% for d in destinatarios %}
+<div class="modal fade" id="modalEditar{{ d.id }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('editar_destinatario', id=d.id) }}">
+                <div class="modal-header" style="background:var(--primary);color:white;">
+                    <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Editar</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3"><label class="form-label fw-semibold">Nombre *</label><input type="text" name="nombre" class="form-control" required value="{{ d.nombre }}"></div>
+                    <div class="mb-3"><label class="form-label fw-semibold">Email *</label><input type="email" name="email" class="form-control" required value="{{ d.email }}"></div>
+                    <div class="mb-3"><label class="form-label">Área</label><input type="text" name="area" class="form-control" value="{{ d.area or '' }}"></div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Recibe:</label>
+                        <div class="form-check"><input class="form-check-input" type="checkbox" name="recibe_preventivos" id="ep{{ d.id }}" {% if d.recibe_preventivos %}checked{% endif %}><label class="form-check-label" for="ep{{ d.id }}"><span class="badge bg-info">Preventivos</span></label></div>
+                        <div class="form-check"><input class="form-check-input" type="checkbox" name="recibe_correctivos" id="ec{{ d.id }}" {% if d.recibe_correctivos %}checked{% endif %}><label class="form-check-label" for="ec{{ d.id }}"><span class="badge bg-danger">Correctivos</span></label></div>
+                        <div class="form-check"><input class="form-check-input" type="checkbox" name="recibe_vencidos" id="ev{{ d.id }}" {% if d.recibe_vencidos %}checked{% endif %}><label class="form-check-label" for="ev{{ d.id }}"><span class="badge bg-warning text-dark">Vencidos</span></label></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-corporate"><i class="bi bi-save me-1"></i> Actualizar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function probarCorreo() {
+    if (!confirm('¿Enviar correo de prueba?')) return;
+    fetch('/api/test-email', {method: 'POST'}).then(r=>r.json()).then(data => {
+        if (data.success) alert(`✅ Correo enviado a ${data.enviados} destinatario(s)`);
+        else alert(`❌ ${data.error}`);
+    }).catch(e => alert('Error: ' + e.message));
+}
+</script>
+{% endblock %}

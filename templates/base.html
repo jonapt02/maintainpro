@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MaintainPro - {% block title %}Dashboard{% endblock %}</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔧</text></svg>">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #1a237e;
+            --primary-light: #283593;
+            --secondary: #0d47a1;
+            --accent: #00bcd4;
+            --success: #00c853;
+            --warning: #ffab00;
+            --danger: #d32f2f;
+            --bg-light: #f5f7fa;
+            --text-dark: #1a1a2e;
+            --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+            --radius: 12px;
+        }
+        * { font-family: 'Inter', sans-serif; }
+        body { background: var(--bg-light); color: var(--text-dark); }
+        .sidebar {
+            min-height: 100vh;
+            background: linear-gradient(180deg, var(--primary) 0%, var(--secondary) 100%);
+            box-shadow: 4px 0 20px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+        }
+        .sidebar-brand {
+            padding: 24px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .sidebar-brand h4 {
+            color: white;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.5px;
+        }
+        .sidebar-brand small {
+            color: rgba(255,255,255,0.7);
+            font-size: 0.75rem;
+        }
+        .sidebar .nav-link {
+            color: rgba(255,255,255,0.7);
+            padding: 12px 20px;
+            margin: 4px 12px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        .sidebar .nav-link:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            transform: translateX(4px);
+        }
+        .sidebar .nav-link.active {
+            background: rgba(255,255,255,0.15);
+            color: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .sidebar .nav-link i {
+            margin-right: 10px;
+            width: 20px;
+            text-align: center;
+        }
+        .main-content { padding: 30px; }
+        .stat-card {
+            background: white;
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid rgba(0,0,0,0.04);
+            transition: all 0.3s ease;
+        }
+        .stat-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+        .stat-card .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        .stat-card .stat-number {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin: 8px 0 4px;
+        }
+        .stat-card .stat-label {
+            font-size: 0.875rem;
+            color: #6b7280;
+            font-weight: 500;
+        }
+        .stat-card .stat-trend {
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .stat-card .stat-trend.up { color: var(--success); }
+        .stat-card .stat-trend.down { color: var(--danger); }
+        .content-card {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid rgba(0,0,0,0.04);
+            overflow: hidden;
+        }
+        .content-card .card-header {
+            background: white;
+            border-bottom: 1px solid rgba(0,0,0,0.06);
+            padding: 16px 24px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .content-card .card-body { padding: 24px; }
+        .badge-status {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-weight: 500;
+            font-size: 0.75rem;
+        }
+        .badge-status.operativa { background: #e8f5e9; color: #2e7d32; }
+        .badge-status.enmantenimiento { background: #fff3e0; color: #e65100; }
+        .badge-status.fueradeservicio { background: #fce4ec; color: #c62828; }
+        .table-corporate { font-size: 0.875rem; }
+        .table-corporate thead th {
+            background: #f8fafc;
+            color: #475569;
+            font-weight: 600;
+            padding: 12px 16px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .table-corporate tbody td {
+            padding: 12px 16px;
+            vertical-align: middle;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .table-corporate tbody tr:hover { background: #f8fafc; }
+        .btn-corporate {
+            background: var(--primary);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: none;
+        }
+        .btn-corporate:hover {
+            background: var(--primary-light);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+            color: white;
+        }
+        .btn-outline-corporate {
+            border: 2px solid var(--primary);
+            color: var(--primary);
+            background: transparent;
+            padding: 6px 18px;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .btn-outline-corporate:hover { background: var(--primary); color: white; }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-in { animation: fadeInUp 0.5s ease forwards; }
+        .delay-1 { animation-delay: 0.1s; }
+        .delay-2 { animation-delay: 0.2s; }
+        .delay-3 { animation-delay: 0.3s; }
+        .delay-4 { animation-delay: 0.4s; }
+        @media (max-width: 768px) {
+            .sidebar { min-height: auto; position: relative; }
+            .main-content { padding: 16px; }
+            .stat-card .stat-number { font-size: 22px; }
+        }
+        .timeline { position: relative; padding-left: 30px; }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #e2e8f0;
+        }
+        .timeline-item { position: relative; margin-bottom: 24px; padding-left: 20px; }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -26px;
+            top: 4px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 3px solid var(--primary);
+            background: white;
+        }
+        .timeline-item.preventivo::before { border-color: var(--accent); }
+        .timeline-item.correctivo::before { border-color: var(--danger); }
+        .timeline-item .timeline-date {
+            font-size: 0.75rem;
+            color: #6b7280;
+            font-weight: 500;
+        }
+        .timeline-item .timeline-title { font-weight: 600; margin: 4px 0; }
+        .timeline-item .timeline-content { color: #475569; font-size: 0.875rem; }
+        .badge-criticidad {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.75rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .badge-criticidad.critico { background: #fce4ec; color: #c62828; }
+        .badge-criticidad.medianamente_critico { background: #fff3e0; color: #e65100; }
+        .badge-criticidad.nada_critico { background: #e8f5e9; color: #2e7d32; }
+        .badge-frecuencia {
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 0.7rem;
+            background: #e3f2fd;
+            color: #0d47a1;
+        }
+        .badge-mant-vencido { background: #fce4ec; color: #c62828; }
+        .badge-mant-proximo { background: #fff3e0; color: #e65100; }
+        .badge-mant-al_dia { background: #e8f5e9; color: #2e7d32; }
+        .badge-mant-sin_programar { background: #f5f5f5; color: #6c757d; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid p-0">
+        <div class="row g-0">
+            <nav class="col-md-2 d-md-block sidebar">
+                <div class="sidebar-brand">
+                    <h4><i class="bi bi-gear-fill me-2"></i>MaintainPro</h4>
+                    <small>Sistema de Gestión de Mantenimiento</small>
+                </div>
+                <ul class="nav flex-column mt-3">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">
+                            <i class="bi bi-speedometer2"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'listar_maquinas' %}active{% endif %}" href="{{ url_for('listar_maquinas') }}">
+                            <i class="bi bi-hdd-stack"></i> Máquinas
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'calendario' %}active{% endif %}" href="{{ url_for('calendario') }}">
+                            <i class="bi bi-calendar3"></i> Calendario
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'reportes' %}active{% endif %}" href="{{ url_for('reportes') }}">
+                            <i class="bi bi-file-text"></i> Reportes
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'configuracion' %}active{% endif %}" href="{{ url_for('configuracion') }}">
+                            <i class="bi bi-envelope-paper"></i> Correos
+                        </a>
+                    </li>
+                </ul>
+                <div class="position-absolute bottom-0 p-3" style="width: 100%;">
+                    <div class="text-white-50 small">
+                        <i class="bi bi-dot"></i> Sistema v3.0
+                    </div>
+                </div>
+            </nav>
+
+            <main class="col-md-10 ms-sm-auto main-content">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show animate-in" role="alert">
+                                <i class="bi bi-{% if category == 'success' %}check-circle{% elif category == 'warning' %}exclamation-triangle{% elif category == 'danger' %}x-circle{% else %}info-circle{% endif %} me-2"></i>
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

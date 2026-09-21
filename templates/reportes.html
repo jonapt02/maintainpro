@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}Reportes{% endblock %}
+
+{% block content %}
+<div class="animate-in">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1"><i class="bi bi-file-text me-2" style="color: var(--primary);"></i>Reportes</h2>
+            <p class="text-muted">Exporta historial de mantenimientos</p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="content-card">
+                <div class="card-header"><span><i class="bi bi-funnel me-2" style="color: var(--primary);"></i>Filtros</span></div>
+                <div class="card-body">
+                    <form id="formReporte">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Máquina</label>
+                            <select name="maquina_id" class="form-select">
+                                <option value="">Todas</option>
+                                {% for m in maquinas %}<option value="{{ m.id }}">{{ m.codigo }} - {{ m.nombre }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3"><label class="form-label fw-semibold">Desde</label><input type="date" name="fecha_inicio" class="form-control"></div>
+                            <div class="col-md-6 mb-3"><label class="form-label fw-semibold">Hasta</label><input type="date" name="fecha_fin" class="form-control"></div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3"><label class="form-label fw-semibold">Tipo</label>
+                                <select name="tipo" class="form-select"><option value="Todos">Todos</option><option value="Preventivo">Preventivo</option><option value="Correctivo">Correctivo</option></select>
+                            </div>
+                            <div class="col-md-6 mb-3"><label class="form-label fw-semibold">Estado</label>
+                                <select name="estado" class="form-select"><option value="Todos">Todos</option><option value="Completado">Completado</option><option value="Pendiente">Pendiente</option><option value="En progreso">En progreso</option></select>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-corporate w-100" onclick="generarPDF()"><i class="bi bi-file-pdf me-2"></i> Generar PDF</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="content-card">
+                <div class="card-header"><span><i class="bi bi-info-circle me-2" style="color: var(--primary);"></i>Información</span></div>
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-file-pdf display-1 text-muted"></i>
+                    <p class="text-muted mt-3">Selecciona filtros y genera el PDF.</p>
+                    <div class="d-flex justify-content-center gap-2">
+                        <span class="badge bg-info">Preventivos</span>
+                        <span class="badge bg-danger">Correctivos</span>
+                        <span class="badge bg-success">Completados</span>
+                        <span class="badge bg-warning text-dark">Pendientes</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="previewDatos" class="mt-4" style="display:none;">
+        <div class="content-card">
+            <div class="card-header"><span><i class="bi bi-table me-2" style="color: var(--primary);"></i>Vista previa</span><span id="totalRegistros" class="badge bg-secondary">0</span></div>
+            <div class="card-body">
+                <div id="resumenReporte" class="row g-3 mb-3"></div>
+                <div class="table-responsive">
+                    <table class="table table-corporate">
+                        <thead><tr><th>Máquina</th><th>Código</th><th>Fecha</th><th>Tipo</th><th>Técnico</th><th>Estado</th></tr></thead>
+                        <tbody id="cuerpoPreview"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+<script>
+async function generarPDF() {
+    const btn = event.target.closest('button');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Generando...';
+    btn.disabled = true;
+    try {
+        const formData = new FormData(document.getElementById('formReporte'));
+        const params = new URLSearchParams(formData);
+        const response = await fetch('/api/datos-reporte?' + params);
+        const data = await response.json();
+        if (data.datos.length === 0) { alert('Sin datos'); return; }
+        mostrarPreview(data);
+
+        const filas = [[
+            {text:'Máquina',style:'th'},{text:'Código',style:'th'},{text:'Fecha',style:'th'},
+            {text:'Tipo',style:'th'},{text:'Técnico',style:'th'},{text:'Estado',style:'th'}
+        ]];
+        data.datos.forEach(m => filas.push([
+            {text:m.maquina,fontSize:8},{text:m.codigo,fontSize:8},{text:m.fecha,fontSize:8},
+            {text:m.tipo,fontSize:8},{text:m.tecnico,fontSize:8},{text:m.estado,fontSize:8}
+        ]));
+
+        const doc = {
+            pageSize:'A4', pageOrientation:'landscape', pageMargins:[30,50,30,50],
+            header: () => ({text:'INFORME DE MANTENIMIENTO',fontSize:16,bold:true,color:'#1a237e',alignment:'center',margin:[0,15,0,0]}),
+            footer: () => ({text:`Generado el ${new Date().toLocaleString('es-CO')}`,alignment:'center',fontSize:8,color:'#999',margin:[0,20,0,0]}),
+            content: [
+                {text:`Generado: ${new Date().toLocaleString('es-CO')}`,alignment:'right',fontSize:9,color:'#666',margin:[0,0,0,15]},
+                {text:'RESUMEN',fontSize:12,bold:true,color:'#0d47a1',margin:[0,0,0,8]},
+                {table:{widths:['*','*','*','*'],body:[
+                    [{text:'Total',style:'th',alignment:'center'},{text:'Preventivos',style:'th',alignment:'center'},{text:'Correctivos',style:'th',alignment:'center'},{text:'Completados',style:'th',alignment:'center'}],
+                    [{text:`${data.resumen.total}`,fontSize:16,bold:true,alignment:'center',color:'#1a237e'},{text:`${data.resumen.preventivos}`,fontSize:16,bold:true,alignment:'center',color:'#00bcd4'},{text:`${data.resumen.correctivos}`,fontSize:16,bold:true,alignment:'center',color:'#d32f2f'},{text:`${data.resumen.completados}`,fontSize:16,bold:true,alignment:'center',color:'#2e7d32'}]
+                ]},layout:'noBorders',margin:[0,0,0,20]},
+                {text:'DETALLE',fontSize:12,bold:true,color:'#0d47a1',margin:[0,0,0,8]},
+                {table:{headerRows:1,widths:['auto','auto','auto','auto','*','auto'],body:filas},
+                 layout:{fillColor:i=>i===0?'#1a237e':(i%2===0?'#f5f7fa':null),hLineWidth:()=>0.5,vLineWidth:()=>0,hLineColor:()=>'#e0e0e0',paddingLeft:()=>4,paddingRight:()=>4,paddingTop:()=>4,paddingBottom:()=>4}}
+            ],
+            styles:{th:{bold:true,fontSize:9,color:'#fff'}},
+            defaultStyle:{fontSize:9}
+        };
+        pdfMake.createPdf(doc).download(`reporte_${new Date().toISOString().slice(0,10)}.pdf`);
+    } catch(e) { alert('Error: ' + e.message); }
+    finally { btn.innerHTML = orig; btn.disabled = false; }
+}
+
+function mostrarPreview(data) {
+    document.getElementById('previewDatos').style.display = 'block';
+    document.getElementById('totalRegistros').textContent = `${data.resumen.total} registros`;
+    document.getElementById('resumenReporte').innerHTML = `
+        <div class="col-md-3"><div class="p-3 bg-light rounded-3 text-center"><div class="fw-bold fs-4">${data.resumen.total}</div><div class="text-muted small">Total</div></div></div>
+        <div class="col-md-3"><div class="p-3 bg-info bg-opacity-10 rounded-3 text-center"><div class="fw-bold fs-4 text-info">${data.resumen.preventivos}</div><div class="text-muted small">Preventivos</div></div></div>
+        <div class="col-md-3"><div class="p-3 bg-danger bg-opacity-10 rounded-3 text-center"><div class="fw-bold fs-4 text-danger">${data.resumen.correctivos}</div><div class="text-muted small">Correctivos</div></div></div>
+        <div class="col-md-3"><div class="p-3 bg-success bg-opacity-10 rounded-3 text-center"><div class="fw-bold fs-4 text-success">${data.resumen.completados}</div><div class="text-muted small">Completados</div></div></div>
+    `;
+    document.getElementById('cuerpoPreview').innerHTML = data.datos.slice(0,20).map(row => `
+        <tr><td><strong>${row.maquina}</strong></td><td><small>${row.codigo}</small></td><td>${row.fecha}</td>
+        <td><span class="badge ${row.tipo==='Preventivo'?'bg-info':'bg-danger'}">${row.tipo}</span></td>
+        <td>${row.tecnico}</td><td><span class="badge ${row.estado==='Completado'?'bg-success':'bg-warning text-dark'}">${row.estado}</span></td></tr>
+    `).join('');
+}
+</script>
+{% endblock %}
